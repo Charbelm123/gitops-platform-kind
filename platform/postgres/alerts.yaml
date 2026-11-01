@@ -1,0 +1,33 @@
+# Alert on the silent middle stage, not just on "database down": a broken WAL archiver looks healthy
+# for hours while WAL piles up on the primary's disk.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: postgres
+spec:
+  groups:
+    - name: postgres
+      rules:
+        - alert: PostgresWalArchivingFailing
+          expr: increase(cnpg_pg_stat_archiver_failed_count[15m]) > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "WAL archiving is failing on {{ $labels.pod }}; backups have stopped and WAL is accumulating"
+        - alert: PostgresVolumeAlmostFull
+          expr: |
+            kubelet_volume_stats_available_bytes{namespace="databases"}
+              / kubelet_volume_stats_capacity_bytes{namespace="databases"} < 0.15
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Volume {{ $labels.persistentvolumeclaim }} has less than 15% free"
+        - alert: PostgresReplicationLagHigh
+          expr: cnpg_pg_replication_lag > 60
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Replica {{ $labels.pod }} is more than 60s behind the primary"

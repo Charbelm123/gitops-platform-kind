@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgres
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2" # after the operator and its CRDs exist
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Charbelm123/gitops-platform-kind.git
+    targetRevision: main
+    path: platform/postgres
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: databases
+  syncPolicy:
+    # Stateful: synced on purpose, never auto-pruned. A bad commit must not delete a database.
+    syncOptions:
+      - CreateNamespace=true

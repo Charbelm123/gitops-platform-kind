@@ -1,0 +1,40 @@
+# One Argo CD Application per apps/overlays/<env>/<service> folder. Adding a service is adding a folder.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: services
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/Charbelm123/gitops-platform-kind.git
+        revision: main
+        directories:
+          - path: apps/overlays/*/*
+  template:
+    metadata:
+      name: '{{ index .path.segments 3 }}-{{ index .path.segments 2 }}'
+      labels:
+        env: '{{ index .path.segments 2 }}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/Charbelm123/gitops-platform-kind.git
+        targetRevision: main
+        path: '{{ .path.path }}'
+      destination:
+        server: https://kubernetes.default.svc
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m

@@ -1,0 +1,47 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1" # before the apps: their PodMonitor/PrometheusRule need these CRDs
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 68.3.0
+    helm:
+      valuesObject:
+        prometheus:
+          prometheusSpec:
+            # By default the operator only picks up monitors and rules labelled with this Helm
+            # release. Without these, every per-service PodMonitor and PrometheusRule is ignored
+            # silently: the CRs exist, nothing is scraped and no alert can ever fire.
+            podMonitorSelectorNilUsesHelmValues: false
+            serviceMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            podMonitorNamespaceSelector: {}
+            serviceMonitorNamespaceSelector: {}
+            ruleNamespaceSelector: {}
+            retention: 3d
+            resources:
+              requests:
+                memory: 400Mi
+        grafana:
+          adminPassword: change-me-locally # kind demo only; use a Secret in anything real
+        alertmanager:
+          alertmanagerSpec:
+            resources:
+              requests:
+                memory: 64Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true # the CRDs exceed the 256 KB last-applied annotation limit

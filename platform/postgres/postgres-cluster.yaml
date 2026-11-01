@@ -1,0 +1,40 @@
+# Three-instance Postgres managed by CloudNativePG: one primary, two streaming replicas, automatic
+# failover. The operator exposes postgres-rw (always the primary) and postgres-ro (replicas).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.4
+  primaryUpdateStrategy: unsupervised
+
+  storage:
+    size: 1Gi
+
+  # Each instance on a different node when there are enough nodes.
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+
+  postgresql:
+    parameters:
+      max_connections: "100"
+      log_min_duration_statement: "500ms"
+
+  monitoring:
+    enablePodMonitor: true # without it you find out the archiver broke when the disk is full
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+# No PodDisruptionBudget here: CNPG creates its own for the primary and the replicas, and a second
+# overlapping PDB can block node drains entirely.

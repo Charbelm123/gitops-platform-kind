@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: podinfo
+data:
+  PODINFO_UI_MESSAGE: "hello from base"
+  PODINFO_UI_COLOR: "#34577c"

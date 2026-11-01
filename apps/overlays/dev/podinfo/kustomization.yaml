@@ -1,0 +1,36 @@
+# An overlay only says what is different in this environment: tag, replicas, a config key.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: podinfo-dev
+resources:
+  - ../../../base/podinfo
+  - namespace.yaml
+images:
+  - name: ghcr.io/stefanprodan/podinfo
+    newTag: 6.7.1
+labels:
+  - pairs:
+      env: dev
+    includeSelectors: false
+patches:
+  - target:
+      kind: Deployment
+      name: podinfo
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: ConfigMap
+      name: podinfo
+    patch: |-
+      - op: replace
+        path: /data/PODINFO_UI_MESSAGE
+        value: "hello from dev"
+  - target:
+      kind: Ingress
+      name: podinfo
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: podinfo-dev.localtest.me

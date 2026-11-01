@@ -1,0 +1,43 @@
+# Each service ships its own scrape config and alerts, so monitoring is added with the service, not after.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: podinfo
+spec:
+  selector:
+    matchLabels:
+      app: podinfo
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: podinfo
+spec:
+  groups:
+    - name: podinfo
+      rules:
+        - alert: PodinfoDown
+          expr: absent(up{job=~".*podinfo.*"} == 1) # absent(): fires if the target vanishes, not only if it reports 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "No podinfo pod is being scraped"
+        - alert: PodinfoHighErrorRate
+          expr: |
+            sum(rate(http_request_duration_seconds_count{job=~".*podinfo.*", status=~"5.."}[5m]))
+              / sum(rate(http_request_duration_seconds_count{job=~".*podinfo.*"}[5m])) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "More than 5% of podinfo requests fail"
+        - alert: PodinfoRestarting
+          expr: increase(kube_pod_container_status_restarts_total{container="podinfo"}[30m]) > 3
+          labels:
+            severity: warning
+          annotations:
+            summary: "podinfo restarted more than 3 times in 30 minutes"
